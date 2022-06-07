@@ -36,8 +36,8 @@ class Parser:
         date = self.date_regex.findall(data)[0]
         receiver = self.to_regex.findall(data)[0]
         subject = self.subject_regex.findall(data)[0]
-        return self.decode_header(sender), self.decode_header(receiver), self.decode_header(subject), \
-               self.decode_header(date)
+        return self.decode_header(sender), self.decode_header(receiver), \
+               self.decode_header(subject), self.decode_header(date)
 
     def get_message_info(self, sock, number, counter):
         sock.send(f'A{counter} FETCH {number} BODY[HEADER]\r\n'.encode())

@@ -13,6 +13,7 @@ class IMAP:
         self.server_address = server_address
         self.mail_range = mail_range
         self.sock = None
+        socket.setdefaulttimeout(2)
         self.password = None
         self.all_letters = False
         self.start_index = -1
@@ -25,11 +26,11 @@ class IMAP:
 
     def start(self):
         self.connect_to_server()
-        print((self.sock.recv(1024).decode()))
+        self.receive()
         self.auth()
         self.sock.send(f'A{self.counter} SELECT INBOX\r\n'.encode())
         self.counter += 1
-        self.sock.recv(1024).decode()
+        self.receive()
         numbers_of_letters = self.parser.get_messages_numbers(self.sock, self.all_letters, self.start_index,
                                                               self.end_index, self.counter)
         self.counter += 1
@@ -57,8 +58,8 @@ class IMAP:
     def connect_to_server(self):
         try:
             self.sock = socket.create_connection((self.server_address, self.port))
-        except Exception as error:
-            print(error)
+        except socket.error:
+            print("Can't connect to the server")
             exit(0)
 
         if self.use_ssl:
@@ -68,18 +69,24 @@ class IMAP:
                 self.sock = self.ssl_context.wrap_socket(self.sock, server_hostname=self.server_address)
             except ssl.SSLError:
                 print('Can not establish secure connection')
-                self.sock = socket.create_connection((self.connect_to_server(), self.port))
+                self.sock = socket.create_connection((self.server_address, self.port))
             else:
                 print('Secure connection has established')
                 return
             print('Trying to establish secure connection using STARTTLS')
             self.sock.send(f'A{self.counter} STARTTLS\r\n'.encode())
             self.counter += 1
-            data = self.sock.recv(1024)
-            print(data.decode())
+            data = self.receive()
             if b'NO' not in data and b'BAD' not in data:
-                print('Secure connection with STARTTLS has established')
-                return
+                self.ssl_socket = self.sock
+                try:
+                    self.sock = self.ssl_context.wrap_socket(self.sock, server_hostname=self.server_address)
+                except ssl.SSLError:
+                    self.sock = socket.create_connection((self.server_address, self.port))
+                else:
+                    self.receive()
+                    print('Secure connection with STARTTLS has established')
+                    return
         print('You use unsafe connection.')
 
     def make_range_of_letters(self):
@@ -96,17 +103,16 @@ class IMAP:
             if len(self.user) == 0:
                 self.user = input('Enter username: ')
             self.password = getpass.getpass('Enter password: ')
-            self.sock.send(f"A{self.counter} AUTHENTICATE PLAIN\r\n".encode())
-            self.sock.recv(1024).decode()
+            try:
+                self.sock.send(f"A{self.counter} AUTHENTICATE PLAIN\r\n".encode())
+            except socket.error:
+                print("Can't connect without secure connection")
+            self.receive()
             self.counter += 1
             qwe = self.encode_user_and_password()
             self.sock.send(qwe + "\r\n".encode())
-            response = self.sock.recv(1024).decode()
+            response = self.receive().decode()
             print(response)
-            '''self.sock.send(f'A{self.counter} LOGIN {self.user} {self.password}\r\n'.encode())
-            self.counter += 1
-            response = self.sock.recv(1024).decode()
-            print(response)'''
             if ('A' + str(self.counter - 1) + ' OK') in response:
                 print('Authentication successful\n')
                 break
@@ -118,4 +124,20 @@ class IMAP:
         base64_str = base64.b64encode(byte_str)
         return base64_str
 
-
+    def receive(self):
+        data = []
+        while True:
+            try:
+                data.append(self.sock.recv(1024))
+            except socket.timeout:
+                break
+            except ConnectionResetError as e:
+                raise ConnectionAbortedError(e)
+            except ConnectionAbortedError:
+                print('Connection closed by server')
+                exit(0)
+            else:
+                if data[-1] == b'':
+                    break
+        data = b''.join(data)
+        return data
