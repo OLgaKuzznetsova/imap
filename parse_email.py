@@ -69,14 +69,22 @@ class Parser:
         sock.send(f'A{counter} SEARCH ALL\r\n'.encode())
         data = sock.recv(1024).decode()
         numbers = self.letter_numbers_regex.findall(data)
-        numbers = numbers[0].split()
+        try:
+            numbers = numbers[0].split()
+        except IndexError:
+            print("No mail in the box")
         for i in range(len(numbers)):
             numbers[i] = int(numbers[i])
-        if (end_index != -1 and end_index not in numbers) or (start_index != -1 and start_index not in numbers):
-            print("There are no messages with entered number")
-            exit(0)
-        if end_index == -1 and start_index != -1:
+        if end_index == -1 and start_index != -1 and start_index in numbers:
             return [start_index]
-        elif end_index != -1 and start_index != -1:
-            return numbers[start_index - 1: end_index]
-        return numbers
+        elif end_index == -1 and start_index == -1:
+            return numbers
+        elif start_index != -1 and end_index != -1:
+            existing_numbers = []
+            for i in range(start_index, end_index + 1):
+                if i in numbers:
+                    existing_numbers.append(i)
+            if len(existing_numbers) != 0:
+                return existing_numbers
+        print("There are no messages with entered number")
+        exit(0)

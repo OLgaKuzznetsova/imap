@@ -23,7 +23,7 @@ if __name__ == "__main__":
         port = host_port[1]
     else:
         port = 143
-    server_Imap = IMAP(args.ssl, server, int(port) , args.n, args.user)
+    server_Imap = IMAP(args.ssl, server, int(port), args.n, args.user)
     try:
         server_Imap.start()
     except KeyboardInterrupt:

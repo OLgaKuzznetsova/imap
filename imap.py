@@ -112,7 +112,7 @@ class IMAP:
             qwe = self.encode_user_and_password()
             self.sock.send(qwe + "\r\n".encode())
             response = self.receive().decode()
-            print(response)
+            #print(response)
             if ('A' + str(self.counter - 1) + ' OK') in response:
                 print('Authentication successful\n')
                 break
